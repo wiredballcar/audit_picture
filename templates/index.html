@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a1410">
+<title>Koramangala Footpath Audit 2026</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:#f5f0e8; --paper2:#ede8dc; --paper3:#e5dfd0;
+  --ink:#1a1410; --ink-light:#4a3f35; --ink-muted:#8a7d70;
+  --green:#2d6a2d; --amber:#b8620a; --red:#9b2020;
+  --border:#c8bfb0; --border-dark:#a09080;
+  --panel-w: 380px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--paper); color: var(--ink); font-family: 'Lora', Georgia, serif; overflow: hidden; display: flex; flex-direction: column; font-size: 16px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--ink); color: var(--paper);
+  display: flex; align-items: stretch; justify-content: space-between;
+  flex-shrink: 0; z-index: 1000; border-bottom: 3px solid var(--amber);
+  min-height: 56px;
+}
+.h-brand { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-right: 1px solid rgba(255,255,255,0.1); min-width: 0; }
+.h-stamp { width: 38px; height: 38px; border: 1.5px solid rgba(245,240,232,0.35); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.h-eyebrow { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: rgba(245,240,232,0.45); margin-bottom: 2px; }
+.h-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; line-height: 1; }
+.h-sub { font-family: 'Lora', serif; font-style: italic; font-size: 11px; color: rgba(245,240,232,0.5); margin-top: 2px; }
+.h-stats { display: flex; align-items: stretch; }
+.hstat { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 14px; border-right: 1px solid rgba(255,255,255,0.08); gap: 1px; }
+.hstat-v { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; line-height: 1; }
+.hstat-l { font-family: 'DM Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .12em; color: rgba(245,240,232,0.4); }
+.h-legend { display: flex; align-items: center; gap: 12px; padding: 0 12px; }
+.hl { display: flex; align-items: center; gap: 5px; font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: rgba(245,240,232,0.55); }
+.hl-line { width: 16px; height: 3px; border-radius: 1px; }
+.h-actions { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-left: 1px solid rgba(255,255,255,0.1); }
+.hbtn { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .09em; padding: 8px 12px; cursor: pointer; border-radius: 3px; transition: background .2s; white-space: nowrap; touch-action: manipulation; }
+.hbtn:hover, .hbtn.active { background: var(--amber); border-color: var(--amber); }
+.hbtn.draw-active { background: #1a4a8a; border-color: #1a4a8a; animation: pulse 1.5s infinite; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #4a9e4a; flex-shrink: 0; transition: background .3s; }
+.sync-dot.syncing { background: var(--amber); animation: pulse .8s infinite; }
+.sync-dot.error { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.6} }
+
+/* MOBILE header collapsed */
+.h-legend, .h-stats { flex-wrap: wrap; }
+
+/* ── DRAW BANNER ── */
+.draw-banner { background: #1a4a8a; color: #fff; font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; padding: 8px 16px; text-align: center; display: none; flex-shrink: 0; }
+.draw-banner.show { display: block; }
+
+/* ── BODY ── */
+.body { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; }
+#map { flex: 1; background: var(--paper2) !important; cursor: default; }
+#map.drawing-mode { cursor: crosshair !important; }
+.leaflet-container { background: #e8e0d0 !important; font-size: 14px !important; }
+.leaflet-popup-content-wrapper { background: var(--paper) !important; border: 1.5px solid var(--ink) !important; border-radius: 2px !important; box-shadow: 4px 4px 0 rgba(26,20,16,0.12) !important; padding: 0 !important; }
+.leaflet-popup-tip { background: var(--paper) !important; }
+.leaflet-popup-content { margin: 0 !important; }
+.leaflet-control-zoom { border: 1.5px solid var(--ink) !important; border-radius: 3px !important; }
+.leaflet-control-zoom a { background: var(--paper) !important; color: var(--ink) !important; border-bottom-color: var(--border) !important; font-size: 16px !important; width: 34px !important; height: 34px !important; line-height: 34px !important; }
+.leaflet-control-attribution { background: rgba(245,240,232,0.9) !important; font-family: 'DM Mono', monospace !important; font-size: 9px !important; }
+
+/* ── PANEL ── */
+.panel {
+  width: var(--panel-w); flex-shrink: 0;
+  background: var(--paper); border-left: 1.5px solid var(--ink);
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: -6px 0 24px rgba(26,20,16,0.07);
+  z-index: 500;
+}
+.panel-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--border); background: var(--paper2); flex-shrink: 0; }
+.pe { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .15em; color: var(--ink-muted); margin-bottom: 4px; }
+.pt { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1.2; }
+.ps { font-family: 'Lora', serif; font-style: italic; font-size: 13px; color: var(--ink-muted); margin-top: 3px; }
+
+/* Tabs */
+.panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--paper2); overflow-x: auto; }
+.panel-tabs::-webkit-scrollbar { display: none; }
+.ptab { flex: 1; min-width: 54px; padding: 10px 6px; font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-muted); cursor: pointer; text-align: center; border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; background: none; border-top: none; border-left: none; border-right: none; touch-action: manipulation; }
+.ptab:hover { color: var(--ink); }
+.ptab.active { color: var(--amber); border-bottom-color: var(--amber); }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; }
+.panel-body::-webkit-scrollbar { width: 3px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--border-dark); }
+
+/* ── BACK BUTTON (prominent, mobile-friendly) ── */
+.back-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--paper2); border: 1.5px solid var(--border-dark);
+  color: var(--ink); font-family: 'DM Mono', monospace; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 10px 14px; cursor: pointer; margin-bottom: 16px;
+  width: 100%; border-radius: 3px; transition: background .2s;
+  touch-action: manipulation;
+}
+.back-btn:hover { background: var(--paper3); border-color: var(--ink); }
+.back-btn-arrow { font-size: 16px; }
+
+/* ── PROGRESS ── */
+.prog-wrap { background: var(--paper2); border: 1px solid var(--border); padding: 14px; margin-bottom: 16px; }
+.prog-top { display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-muted); margin-bottom: 6px; align-items: baseline; }
+.prog-pct { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--green); }
+.prog-bar { height: 4px; background: var(--border); overflow: hidden; border-radius: 2px; }
+.prog-fill { height: 100%; background: var(--green); transition: width 1.2s cubic-bezier(.4,0,.2,1); border-radius: 2px; }
+
+/* ── STREET LIST ── */
+.sitem { display: flex; align-items: flex-start; padding: 13px 10px; gap: 10px; border-bottom: 1px solid var(--paper3); cursor: pointer; transition: background .15s; touch-action: manipulation; }
+.sitem:hover, .sitem:active { background: var(--paper2); }
+.sitem-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.sitem-name { font-family: 'Lora', serif; font-size: 15px; font-weight: 500; color: var(--ink); line-height: 1.3; flex: 1; }
+.sitem-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .04em; }
+.sitem-r { text-align: right; flex-shrink: 0; }
+.sitem-status { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .07em; }
+
+/* ── BADGE ── */
+.badge { display: inline-flex; align-items: center; gap: 5px; font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; padding: 5px 11px; margin-bottom: 14px; font-weight: 500; border-radius: 2px; }
+.badge-g { background: rgba(45,106,45,.1); color: var(--green); border: 1px solid rgba(45,106,45,.25); }
+.badge-a { background: rgba(184,98,10,.1); color: var(--amber); border: 1px solid rgba(184,98,10,.25); }
+.badge-m { background: rgba(138,125,112,.1); color: var(--ink-muted); border: 1px solid var(--border); }
+
+/* ── METRICS ── */
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.metric { border: 1px solid var(--border); padding: 12px 13px; background: var(--paper2); border-radius: 2px; }
+.mv { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1; }
+.ml { font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-muted); margin-top: 3px; }
+
+/* ── DIVIDER ── */
+.div-row { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; }
+.div-lbl { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-muted); white-space: nowrap; flex-shrink: 0; }
+.div-line { flex: 1; height: 1px; background: var(--border); }
+
+/* ── PHOTO GRID ── */
+.photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
+.photo-card { aspect-ratio: 4/3; background: var(--paper2); border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; transition: border-color .2s, box-shadow .2s; position: relative; overflow: hidden; border-radius: 2px; }
+.photo-card:hover, .photo-card:active { border-color: var(--ink); box-shadow: 2px 2px 0 rgba(26,20,16,.12); }
+.photo-card .pe { font-size: 26px; }
+.photo-card img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.photo-cap { font-family: 'Lora', serif; font-style: italic; font-size: 10px; color: var(--ink-muted); text-align: center; padding: 0 5px; line-height: 1.3; position: relative; z-index: 1; }
+.photo-tag { position: absolute; top: 5px; right: 5px; font-family: 'DM Mono', monospace; font-size: 8px; background: var(--ink); color: var(--paper); padding: 2px 5px; z-index: 2; }
+.photo-del-btn { position: absolute; top: 5px; left: 5px; background: rgba(155,32,32,.9); color: #fff; border: none; cursor: pointer; font-size: 11px; padding: 4px 7px; font-family: 'DM Mono', monospace; z-index: 3; display: none; touch-action: manipulation; }
+.photo-card:hover .photo-del-btn, .photo-card:focus-within .photo-del-btn { display: block; }
+
+/* ── COMPLAINTS ── */
+.complaint { border: 1px solid var(--border); padding: 12px 12px 12px 15px; margin-bottom: 8px; background: var(--paper); position: relative; border-radius: 2px; }
+.complaint::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 2px 0 0 2px; }
+.complaint.open::before { background: var(--red); }
+.complaint.prog::before { background: var(--amber); }
+.complaint.done::before { background: var(--green); }
+.c-head { display: flex; justify-content: space-between; margin-bottom: 4px; align-items: center; gap: 8px; }
+.c-id { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-muted); }
+.c-st { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+.c-st.open { color: var(--red); } .c-st.prog { color: var(--amber); } .c-st.done { color: var(--green); }
+.c-title { font-family: 'Lora', serif; font-size: 14px; color: var(--ink); line-height: 1.4; margin-bottom: 3px; }
+.c-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-muted); }
+.c-link { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--amber); text-decoration: none; margin-top: 4px; display: inline-block; }
+.c-link:hover { text-decoration: underline; }
+.c-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.tracker-btn { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; padding: 13px; background: var(--ink); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .11em; text-decoration: none; margin-top: 12px; transition: background .2s; border-radius: 2px; }
+.tracker-btn:hover { background: var(--ink-light); }
+
+/* ── DRIVE ITEMS ── */
+.drive-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--border); margin-bottom: 7px; background: var(--paper); transition: border-color .2s; border-radius: 2px; }
+.drive-item:hover { border-color: var(--amber); }
+.drive-item-icon { font-size: 18px; flex-shrink: 0; }
+.drive-item-info { flex: 1; min-width: 0; }
+.drive-item-name { font-family: 'Lora', serif; font-size: 14px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drive-item-meta { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .04em; }
+.drive-item-open { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--amber); text-decoration: none; white-space: nowrap; }
+.drive-item-open:hover { text-decoration: underline; }
+.drive-del { background: none; border: none; color: var(--ink-muted); cursor: pointer; font-size: 14px; padding: 0 4px; transition: color .2s; touch-action: manipulation; }
+.drive-del:hover { color: var(--red); }
+
+/* ── FORMS ── */
+.form-section { margin-bottom: 20px; }
+.fsec-title { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--amber); margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.field { margin-bottom: 11px; }
+.field label { display: block; font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-muted); margin-bottom: 4px; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 11px 12px; background: var(--paper);
+  border: 1px solid var(--border-dark); font-family: 'Lora', serif;
+  font-size: 15px; color: var(--ink); outline: none; transition: border-color .2s;
+  border-radius: 2px; -webkit-appearance: none; appearance: none;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--amber); }
+.field textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+.field select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a7d70' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* Upload zone */
+.upload-zone { border: 1.5px dashed var(--border-dark); padding: 16px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; background: var(--paper); margin-bottom: 10px; display: block; border-radius: 2px; touch-action: manipulation; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--amber); background: rgba(184,98,10,0.04); }
+.upload-zone input { display: none; }
+.upload-icon { font-size: 24px; margin-bottom: 5px; }
+.upload-text { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-muted); line-height: 1.6; }
+.preview-strip { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+.preview-thumb { width: 60px; height: 44px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; border-radius: 2px; }
+
+/* Buttons */
+.btn { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; padding: 10px 14px; cursor: pointer; border: none; transition: background .2s; display: inline-flex; align-items: center; gap: 6px; border-radius: 2px; touch-action: manipulation; }
+.btn-ink { background: var(--ink); color: var(--paper); } .btn-ink:hover { background: var(--ink-light); }
+.btn-amber { background: var(--amber); color: var(--paper); } .btn-amber:hover { background: #9a520a; }
+.btn-ghost { background: var(--paper2); color: var(--ink-muted); border: 1px solid var(--border); } .btn-ghost:hover { background: var(--paper3); color: var(--ink); }
+.btn-red { background: rgba(155,32,32,.1); color: var(--red); border: 1px solid rgba(155,32,32,.2); } .btn-red:hover { background: rgba(155,32,32,.18); }
+.btn-blue { background: #1a4a8a; color: var(--paper); } .btn-blue:hover { background: #153a70; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.edit-road-section { background: rgba(184,98,10,0.04); border: 1px dashed var(--amber); padding: 14px; margin-bottom: 16px; border-radius: 2px; }
+.edit-road-title { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .11em; color: var(--amber); margin-bottom: 12px; }
+
+/* ── EMPTY ── */
+.empty { text-align: center; padding: 24px 12px; font-family: 'Lora', serif; font-style: italic; font-size: 14px; color: var(--ink-muted); }
+
+/* ── POPUP ── */
+.mpop { padding: 14px 16px; }
+.mpop-name { font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.mpop-st { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 500; margin-bottom: 4px; }
+.mpop-hint { font-family: 'Lora', serif; font-style: italic; font-size: 12px; color: var(--ink-muted); }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; padding: 11px 20px; z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; border-radius: 3px; white-space: nowrap; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; }
+
+/* ── LIGHTBOX ── */
+.lightbox { position: fixed; inset: 0; background: rgba(26,20,16,.93); z-index: 9998; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; padding: 20px; }
+.lightbox.open { display: flex; }
+.lightbox img { max-width: 100%; max-height: 80vh; object-fit: contain; border: 2px solid var(--paper2); border-radius: 2px; }
+.lightbox-close { font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--paper); cursor: pointer; background: none; border: 1px solid rgba(245,240,232,.3); padding: 8px 18px; border-radius: 2px; touch-action: manipulation; }
+
+/* ── CONFIRM MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(26,20,16,.7); z-index: 9997; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--paper); border: 1.5px solid var(--ink); padding: 24px; max-width: 340px; width: 100%; box-shadow: 6px 6px 0 rgba(26,20,16,.15); border-radius: 3px; }
+.modal-title { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+.modal-body { font-family: 'Lora', serif; font-style: italic; font-size: 14px; color: var(--ink-muted); margin-bottom: 18px; line-height: 1.6; }
+.modal-btns { display: flex; gap: 10px; }
+
+/* ── LOADING ── */
+.loading-overlay { position: fixed; inset: 0; background: rgba(245,240,232,0.92); z-index: 9996; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-muted); }
+
+/* ══════════════════════════════════════════════════════
+   MOBILE RESPONSIVE
+══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  :root { --panel-w: 100%; }
+
+  /* Header collapses */
+  .h-stats, .h-legend { display: none; }
+  .h-brand { padding: 8px 12px; }
+  .h-title { font-size: 15px; }
+  .h-sub { font-size: 10px; }
+  .hbtn { padding: 8px 10px; font-size: 9px; }
+  .h-actions { gap: 5px; padding: 0 8px; }
+
+  /* Map shrinks, panel slides up from bottom */
+  .body { flex-direction: column; }
+
+  #map {
+    height: 45vh;
+    min-height: 200px;
+    flex: none;
+  }
+
+  .panel {
+    flex: 1;
+    border-left: none;
+    border-top: 2px solid var(--ink);
+    box-shadow: 0 -4px 20px rgba(26,20,16,0.1);
+    min-height: 0;
+  }
+
+  .panel-head { padding: 12px 14px 10px; }
+  .pt { font-size: 18px; }
+  .ps { font-size: 12px; }
+
+  .panel-body { padding: 14px; }
+
+  .field input, .field select, .field textarea { font-size: 16px; /* prevents iOS zoom */ }
+
+  .photo-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .metrics { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .field-row { grid-template-columns: 1fr; gap: 0; }
+
+  /* bigger touch targets */
+  .sitem { padding: 15px 12px; }
+  .ptab { padding: 12px 6px; font-size: 10px; }
+  .btn { padding: 12px 16px; }
+  .back-btn { padding: 13px 16px; }
+}
+
+@media (max-width: 420px) {
+  .h-eyebrow { display: none; }
+  .h-title { font-size: 14px; }
+  .hbtn { font-size: 8px; padding: 7px 9px; }
+  #map { height: 40vh; }
+}
+</style>
+</head>
+<body>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <img id="lbImg" src="" alt=""/>
+  <button class="lightbox-close" onclick="closeLightbox()">✕ Close</button>
+</div>
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Confirm</div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-btns">
+      <button class="btn btn-red" id="modalConfirm">Confirm</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Loading audit data…</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="h-brand">
+    <div class="h-stamp">🦶</div>
+    <div>
+      <div class="h-eyebrow">Bengaluru Civic Audit · 2026</div>
+      <div class="h-title">Koramangala Footpath Survey</div>
+      <div class="h-sub">3rd – 7th Block · Field Documentation</div>
+    </div>
+  </div>
+  <div class="h-stats">
+    <div class="hstat"><div class="hstat-v" id="hA" style="color:#7eba7e">—</div><div class="hstat-l">Audited</div></div>
+    <div class="hstat"><div class="hstat-v" id="hP" style="color:#e89a60">—</div><div class="hstat-l">Partial</div></div>
+    <div class="hstat"><div class="hstat-v" id="hC" style="color:#e8b060">—</div><div class="hstat-l">Complaints</div></div>
+    <div class="hstat"><div class="hstat-v" id="hPct">—</div><div class="hstat-l">Coverage</div></div>
+  </div>
+  <div class="h-legend">
+    <div class="hl"><div class="hl-line" style="background:#2d6a2d"></div>Audited</div>
+    <div class="hl"><div class="hl-line" style="background:#b8620a"></div>Partial</div>
+    <div class="hl"><svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#b0a090" stroke-width="2" stroke-dasharray="4 3"/></svg>Pending</div>
+    <div class="hl"><span style="font-size:12px">👣</span>Walked</div>
+  </div>
+  <div class="h-actions">
+    <span class="sync-dot" id="syncDot"></span>
+    <button class="hbtn" id="drawBtn" onclick="toggleDraw()">✏ Draw</button>
+    <button class="hbtn" id="manageBtn" onclick="toggleManage()">⊕ Add</button>
+  </div>
+</header>
+
+<div class="draw-banner" id="drawBanner">
+  ✏ Drawing Mode — Tap map to place points · Double-tap or press Finish to save · Esc to cancel
+</div>
+
+<div class="body">
+  <div style="flex:1;min-width:0;position:relative">
+    <div id="map" style="width:100%;height:100%"></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="pe" id="pe">Field Report</div>
+      <div class="pt" id="pt">Street Index</div>
+      <div class="ps" id="ps">Koramangala 3rd – 7th Block</div>
+    </div>
+    <div class="panel-tabs" id="panelTabs" style="display:none">
+      <button class="ptab active" id="tab-view" onclick="switchTab('view')">View</button>
+      <button class="ptab" id="tab-edit" onclick="switchTab('edit')">Edit</button>
+      <button class="ptab" id="tab-photos" onclick="switchTab('photos')">Photos</button>
+      <button class="ptab" id="tab-complaints" onclick="switchTab('complaints')">Complaints</button>
+      <button class="ptab" id="tab-links" onclick="switchTab('links')">Drive</button>
+    </div>
+    <div class="panel-body" id="pb">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ─────────────────────────────────────────────────────
+// CONFIG — injected by Flask
+// ─────────────────────────────────────────────────────
+const STADIA_KEY = "{{ stadia_key }}";
+
+// ─────────────────────────────────────────────────────
+// API helpers (calls our Flask server, not Supabase directly)
+// ─────────────────────────────────────────────────────
+async function api(method, path, body=null){
+  const opts = { method, headers: {"Content-Type":"application/json"} };
+  if(body && !(body instanceof FormData)){
+    opts.body = JSON.stringify(body);
+  } else if(body instanceof FormData){
+    delete opts.headers["Content-Type"];
+    opts.body = body;
+  }
+  const r = await fetch(path, opts);
+  if(!r.ok){ const t = await r.text(); throw new Error(t); }
+  return r.json();
+}
+
+// ─────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────
+let ROADS = [];
+let currentRoadId=null, currentTab='view', manageMode=false, drawMode=false;
+let drawCoords=[], drawLine=null, drawMarkers=[];
+let _inlinePending=[], pendingUploads=[];
+
+function setSyncStatus(s){
+  const d = document.getElementById('syncDot');
+  if(!d) return;
+  d.className = 'sync-dot' + (s==='syncing'?' syncing' : s==='error'?' error' : '');
+}
+
+// ─────────────────────────────────────────────────────
+// MAP
+// ─────────────────────────────────────────────────────
+const map = L.map('map', { center:[12.9310,77.6270], zoom:15, tap:true });
+L.tileLayer(
+  `https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png?api_key=${STADIA_KEY}`,
+  { attribution:'© <a href="https://stadiamaps.com/">Stadia</a> © <a href="https://stamen.com">Stamen</a> © <a href="https://openstreetmap.org">OSM</a>', maxZoom:20 }
+).addTo(map);
+
+const SC = {
+  audited:{ stroke:"#2d6a2d", glow:"rgba(45,106,45,0.16)", w:6 },
+  partial:{ stroke:"#b8620a", glow:"rgba(184,98,10,0.13)", w:4 },
+  pending:{ stroke:"#a09080", glow:null, w:3, dash:"9 6" }
+};
+const layers = {};
+
+function redrawRoad(r){
+  if(layers[r.id]){ layers[r.id].forEach(l=>map.removeLayer(l)); delete layers[r.id]; }
+  if(!r.coords || r.coords.length < 2) return;
+  const cfg = SC[r.status] || SC.pending;
+  const all = [];
+  if(cfg.glow) all.push(L.polyline(r.coords,{color:cfg.stroke,weight:18,opacity:0.14,interactive:false,lineCap:"round"}).addTo(map));
+  const opts = {color:cfg.stroke,weight:cfg.w,opacity:r.status==="pending"?0.4:0.9,lineCap:"round",lineJoin:"round"};
+  if(cfg.dash) opts.dashArray = cfg.dash;
+  const line = L.polyline(r.coords, opts).addTo(map);
+  all.push(line);
+  if(r.status==="audited"){
+    all.push(L.polyline(r.coords,{color:cfg.stroke,weight:1.5,opacity:0.35,dashArray:"4 6",interactive:false,lineCap:"round",offset:9}).addTo(map));
+    all.push(L.polyline(r.coords,{color:cfg.stroke,weight:1.5,opacity:0.35,dashArray:"4 6",interactive:false,lineCap:"round",offset:-9}).addTo(map));
+    all.push(L.polyline(r.coords,{color:cfg.stroke,weight:1,opacity:0.18,dashArray:"1 9",interactive:false,lineCap:"round"}).addTo(map));
+    placeFootsteps(r.coords).forEach(m=>all.push(m));
+  }
+  line.on('mouseover', e => { line.setStyle({weight:cfg.w+3,opacity:1}); L.popup({closeButton:false,offset:[0,-4]}).setLatLng(e.latlng).setContent(mkPopup(r)).openOn(map); });
+  line.on('mouseout',  () => { line.setStyle({weight:cfg.w,opacity:r.status==="pending"?0.4:0.9}); map.closePopup(); });
+  line.on('click', () => { if(!drawMode) openRoad(r); });
+  layers[r.id] = all;
+}
+
+function placeFootsteps(coords){
+  const ms = [];
+  const step = Math.max(1, Math.floor(coords.length/Math.min(7,coords.length)));
+  for(let i=1; i<coords.length-1; i+=step){
+    const rot = (Math.random()*24-12).toFixed(0);
+    const icon = L.divIcon({html:`<div style="font-size:12px;opacity:0.68;transform:rotate(${rot}deg);filter:sepia(0.4);line-height:1">👣</div>`,className:'',iconSize:[16,16],iconAnchor:[8,8]});
+    ms.push(L.marker(coords[i],{icon,interactive:false,zIndexOffset:-100}).addTo(map));
+  }
+  return ms;
+}
+
+function mkPopup(r){
+  const lbl = {audited:"✓ Fully Audited",partial:"◑ Partial Audit",pending:"○ Not Yet Audited"}[r.status];
+  const col = {audited:"#2d6a2d",partial:"#b8620a",pending:"#8a7d70"}[r.status];
+  return `<div class="mpop"><div class="mpop-name">${r.name}</div><div class="mpop-st" style="color:${col}">${lbl}</div><div class="mpop-hint">${r.length||''} · ${r.complaints.length} complaint${r.complaints.length!==1?'s':''} · Tap to inspect</div></div>`;
+}
+
+// ─────────────────────────────────────────────────────
+// LOAD
+// ─────────────────────────────────────────────────────
+async function loadAll(){
+  setSyncStatus('syncing');
+  try {
+    // seed on first run
+    await api('POST','/api/seed').catch(()=>{});
+    ROADS = await api('GET','/api/roads');
+    ROADS.forEach(redrawRoad);
+    updateStats();
+    renderList();
+    setSyncStatus('ok');
+    document.getElementById('loadingOverlay').style.display='none';
+    setTimeout(()=>map.invalidateSize(),200);
+  } catch(e){
+    setSyncStatus('error');
+    document.getElementById('loadingText').textContent='Connection error — check server';
+    console.error(e);
+  }
+}
+
+function updateStats(){
+  const a = ROADS.filter(r=>r.status==='audited').length;
+  const p = ROADS.filter(r=>r.status==='partial').length;
+  const c = ROADS.reduce((s,r)=>s+r.complaints.length, 0);
+  const pct = ROADS.length ? Math.round(((a+p*0.5)/ROADS.length)*100) : 0;
+  document.getElementById('hA').textContent = a;
+  document.getElementById('hP').textContent = p;
+  document.getElementById('hC').textContent = c;
+  document.getElementById('hPct').textContent = pct+'%';
+}
+
+// ─────────────────────────────────────────────────────
+// DRAW MODE
+// ─────────────────────────────────────────────────────
+function toggleDraw(){
+  drawMode = !drawMode;
+  const btn = document.getElementById('drawBtn');
+  document.getElementById('drawBanner').classList.toggle('show', drawMode);
+  document.getElementById('map').classList.toggle('drawing-mode', drawMode);
+  btn.classList.toggle('draw-active', drawMode);
+  btn.textContent = drawMode ? '✕ Cancel' : '✏ Draw';
+  if(!drawMode){ clearDrawing(); renderList(); return; }
+  if(manageMode){ manageMode=false; document.getElementById('manageBtn').classList.remove('active'); document.getElementById('manageBtn').textContent='⊕ Add'; }
+  showDrawPanel();
+}
+
+function showDrawPanel(){
+  document.getElementById('panelTabs').style.display='none';
+  document.getElementById('pe').textContent='Draw Tool';
+  document.getElementById('pt').textContent='New Road';
+  document.getElementById('ps').textContent='Tap map to place points';
+  document.getElementById('pb').innerHTML=`
+    <p style="font-family:'Lora',serif;font-style:italic;font-size:14px;color:var(--ink-muted);margin-bottom:16px;line-height:1.7">Tap on the map to place points along the road. Press <strong style="font-style:normal">Finish & Save</strong> when done.</p>
+    <div id="draw-point-count" style="font-family:'DM Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-muted);margin-bottom:16px;background:var(--paper2);padding:10px 12px;border:1px solid var(--border)">Points placed: 0</div>
+    <div class="field"><label>Road Name *</label><input id="draw-name" placeholder="e.g. 9th Cross Road"/></div>
+    <div class="field-row">
+      <div class="field"><label>Block</label><input id="draw-block" placeholder="5th Block"/></div>
+      <div class="field"><label>Length</label><input id="draw-len" placeholder="0.5 km"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Status</label>
+        <select id="draw-status"><option value="pending">○ Pending</option><option value="partial">◑ Partial</option><option value="audited">✓ Audited</option></select>
+      </div>
+      <div class="field"><label>Condition</label>
+        <select id="draw-cond"><option value="">— n/a</option><option>Good</option><option>Fair</option><option>Poor</option></select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Width</label><input id="draw-width" placeholder="1.0 – 1.5 m"/></div>
+      <div class="field"><label>Audit Date</label><input id="draw-date" placeholder="15 Jan 2026"/></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-blue" onclick="finishDraw()">✓ Finish & Save</button>
+      <button class="btn btn-ghost" onclick="toggleDraw()">✕ Cancel</button>
+    </div>`;
+}
+
+map.on('click', function(e){
+  if(!drawMode) return;
+  drawCoords.push([e.latlng.lat, e.latlng.lng]);
+  const idx = drawCoords.length-1;
+  const m = L.circleMarker(e.latlng,{radius:6,color:'#1a4a8a',fillColor:'#4a7abf',fillOpacity:1,weight:2}).addTo(map);
+  m.on('click', ev => {
+    L.DomEvent.stopPropagation(ev);
+    if(idx===drawCoords.length-1 && drawCoords.length>1){
+      drawCoords.pop(); map.removeLayer(m);
+      if(drawLine){ map.removeLayer(drawLine); drawLine=null; }
+      if(drawCoords.length>1) drawLine=L.polyline(drawCoords,{color:'#1a4a8a',weight:3,dashArray:'6 4'}).addTo(map);
+      const el=document.getElementById('draw-point-count'); if(el) el.textContent=`Points placed: ${drawCoords.length}`;
+    }
+  });
+  drawMarkers.push(m);
+  if(drawLine){ map.removeLayer(drawLine); drawLine=null; }
+  if(drawCoords.length>1) drawLine=L.polyline(drawCoords,{color:'#1a4a8a',weight:3,dashArray:'6 4'}).addTo(map);
+  const el=document.getElementById('draw-point-count'); if(el) el.textContent=`Points placed: ${drawCoords.length}`;
+});
+map.on('dblclick', e=>{ if(!drawMode) return; L.DomEvent.stopPropagation(e); finishDraw(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'&&drawMode) toggleDraw(); });
+
+function clearDrawing(){
+  drawCoords=[];
+  if(drawLine){ map.removeLayer(drawLine); drawLine=null; }
+  drawMarkers.forEach(m=>map.removeLayer(m)); drawMarkers=[];
+}
+
+async function finishDraw(){
+  if(drawCoords.length<2){ toast('Place at least 2 points on the map'); return; }
+  const name = document.getElementById('draw-name')?.value.trim();
+  if(!name){ toast('Please enter a road name'); return; }
+  setSyncStatus('syncing');
+  try {
+    const body = {
+      name, status: document.getElementById('draw-status')?.value||'pending',
+      block: document.getElementById('draw-block')?.value||'Koramangala',
+      length: document.getElementById('draw-len')?.value||'—',
+      auditedOn: document.getElementById('draw-date')?.value||'',
+      width: document.getElementById('draw-width')?.value||'',
+      condition: document.getElementById('draw-cond')?.value||'',
+      coords: [...drawCoords]
+    };
+    const created = await api('POST','/api/roads', body);
+    const r = {...created, auditedOn: created.audited_on||body.auditedOn, photos:[], complaints:[], driveLinks:[]};
+    ROADS.push(r);
+    clearDrawing(); drawMode=false;
+    document.getElementById('drawBtn').classList.remove('draw-active');
+    document.getElementById('drawBtn').textContent='✏ Draw';
+    document.getElementById('drawBanner').classList.remove('show');
+    document.getElementById('map').classList.remove('drawing-mode');
+    redrawRoad(r); updateStats(); setSyncStatus('ok');
+    toast(`"${r.name}" saved ✓`);
+    openRoad(r);
+  } catch(e){ setSyncStatus('error'); toast('Save failed: '+e.message); }
+}
+
+// ─────────────────────────────────────────────────────
+// MANAGE PANEL
+// ─────────────────────────────────────────────────────
+function toggleManage(){
+  manageMode = !manageMode;
+  const btn = document.getElementById('manageBtn');
+  btn.classList.toggle('active', manageMode);
+  btn.textContent = manageMode ? '✕ Close' : '⊕ Add';
+  if(drawMode) toggleDraw();
+  if(manageMode){
+    currentRoadId=null;
+    document.getElementById('panelTabs').style.display='none';
+    document.getElementById('pe').textContent='Data Management';
+    document.getElementById('pt').textContent='Add / Upload';
+    document.getElementById('ps').textContent='Roads · Photos · Complaints · Drive Links';
+    renderManage();
+  } else renderList();
+}
+
+function renderManage(){
+  const roadOpts = ROADS.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  let h = `
+  <div class="form-section">
+    <div class="fsec-title">🗺 Add Road</div>
+    <p style="font-family:'Lora',serif;font-style:italic;font-size:13px;color:var(--ink-muted);margin-bottom:12px">Or use <strong style="font-style:normal">✏ Draw</strong> to trace on the map.</p>
+    <div class="field"><label>Road Name *</label><input id="mn-name" placeholder="e.g. 9th Cross Road"/></div>
+    <div class="field-row">
+      <div class="field"><label>Block</label><input id="mn-block" placeholder="5th Block"/></div>
+      <div class="field"><label>Length</label><input id="mn-len" placeholder="0.5 km"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Status</label>
+        <select id="mn-status"><option value="pending">○ Pending</option><option value="partial">◑ Partial</option><option value="audited">✓ Audited</option></select>
+      </div>
+      <div class="field"><label>Condition</label>
+        <select id="mn-cond"><option value="">— n/a</option><option>Good</option><option>Fair</option><option>Poor</option></select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Width</label><input id="mn-width" placeholder="1.0 – 1.5 m"/></div>
+      <div class="field"><label>Audit Date</label><input id="mn-date" placeholder="15 Jan 2026"/></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-ink" onclick="addRoad()">＋ Add Road</button></div>
+  </div>
+
+  <div class="form-section">
+    <div class="fsec-title">📷 Upload Photos</div>
+    <div class="field"><label>Road</label><select id="mn-photo-road">${roadOpts}</select></div>
+    <label class="upload-zone" id="photoUploadZone">
+      <input type="file" id="photoFileInput" multiple accept="image/*" onchange="handlePhotoFiles(event)"/>
+      <div class="upload-icon">📎</div>
+      <div class="upload-text">Tap to choose photos from device<br>or drag & drop here</div>
+    </label>
+    <div class="preview-strip" id="photoPreviewStrip"></div>
+    <div class="field"><label>Caption</label><input id="mn-photo-cap" placeholder="Describe what you see..."/></div>
+    <div class="field"><label>Tag</label>
+      <select id="mn-photo-tag"><option>Encroachment</option><option>Damage</option><option>Obstruction</option><option>Missing Infra</option><option>Hazard</option><option>Drainage</option><option>Accessibility</option><option>Good Condition</option><option>Infrastructure</option></select>
+    </div>
+    <div class="btn-row" id="photoSaveBtnRow" style="display:none">
+      <button class="btn btn-amber" onclick="savePhotos()">⬆ Upload & Save</button>
+      <button class="btn btn-ghost" onclick="clearPhotoUploads()">Clear</button>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="fsec-title">🗂 Log Complaint</div>
+    <div class="field"><label>Road</label><select id="mn-c-road">${roadOpts}</select></div>
+    <div class="field"><label>Issue *</label><textarea id="mn-c-title" placeholder="Describe the footpath issue..."></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Department</label>
+        <select id="mn-c-dept"><option>BBMP Roads</option><option>BBMP Ward Office</option><option>BBMP Drainage</option><option>BBMP Buildings</option><option>BBMP Horticulture</option><option>BBMP Advertisement</option><option>Traffic Police</option><option>BWSSB</option><option>Other</option></select>
+      </div>
+      <div class="field"><label>Status</label>
+        <select id="mn-c-status"><option value="open">Open</option><option value="prog">In Progress</option><option value="done">Resolved</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Complaint Link (optional)</label><input id="mn-c-link" placeholder="https://bbmpsahaaya.karnataka.gov.in/..."/></div>
+    <div class="btn-row"><button class="btn btn-ink" onclick="addComplaintGlobal()">＋ Log Complaint</button></div>
+  </div>
+
+  <div class="form-section">
+    <div class="fsec-title">🔗 Add Drive / Form Link</div>
+    <div class="field"><label>Road</label><select id="mn-dl-road">${roadOpts}</select></div>
+    <div class="field"><label>Name *</label><input id="mn-dl-name" placeholder="e.g. Audit Form Responses, Photo Album..."/></div>
+    <div class="field"><label>URL *</label><input id="mn-dl-url" placeholder="https://drive.google.com/..."/></div>
+    <div class="field"><label>Type</label>
+      <select id="mn-dl-type">
+        <option value="form">📋 Google Form Response</option>
+        <option value="photos">🖼 Photo Album / Folder</option>
+        <option value="sheet">📊 Google Sheet</option>
+        <option value="doc">📄 Google Doc</option>
+        <option value="file">📁 File / Other</option>
+      </select>
+    </div>
+    <div class="btn-row"><button class="btn btn-ink" onclick="addDriveLinkGlobal()">＋ Add Link</button></div>
+  </div>`;
+  document.getElementById('pb').innerHTML = h;
+
+  const uz = document.getElementById('photoUploadZone');
+  uz.addEventListener('click', e=>{ if(e.target.tagName!=='INPUT') document.getElementById('photoFileInput').click(); });
+  uz.addEventListener('dragover', e=>{ e.preventDefault(); uz.classList.add('drag'); });
+  uz.addEventListener('dragleave', ()=>uz.classList.remove('drag'));
+  uz.addEventListener('drop', e=>{ e.preventDefault(); uz.classList.remove('drag'); handlePhotoFiles({target:{files:e.dataTransfer.files}}); });
+}
+
+// ─────────────────────────────────────────────────────
+// ADD ROAD (quick, no draw)
+// ─────────────────────────────────────────────────────
+async function addRoad(){
+  const name = document.getElementById('mn-name').value.trim();
+  if(!name){ toast('Please enter a road name'); return; }
+  const c = map.getCenter();
+  setSyncStatus('syncing');
+  try {
+    const body = {
+      name, status: document.getElementById('mn-status').value,
+      block: document.getElementById('mn-block').value||'Koramangala',
+      length: document.getElementById('mn-len').value||'—',
+      auditedOn: document.getElementById('mn-date').value||'',
+      width: document.getElementById('mn-width').value||'',
+      condition: document.getElementById('mn-cond').value||'',
+      coords: [[c.lat-0.002,c.lng-0.004],[c.lat,c.lng],[c.lat+0.002,c.lng+0.004]]
+    };
+    const created = await api('POST','/api/roads', body);
+    const r = {...created, auditedOn: created.audited_on||body.auditedOn, photos:[], complaints:[], driveLinks:[]};
+    ROADS.push(r); redrawRoad(r); updateStats(); setSyncStatus('ok');
+    ['mn-name','mn-block','mn-len','mn-date','mn-width'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    toast(`"${r.name}" added ✓`);
+    renderManage();
+  } catch(e){ setSyncStatus('error'); toast('Save failed: '+e.message); }
+}
+
+// ─────────────────────────────────────────────────────
+// PHOTOS
+// ─────────────────────────────────────────────────────
+function handlePhotoFiles(e){
+  Array.from(e.target.files||[]).forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      pendingUploads.push({file:f, dataUrl:ev.target.result});
+      const strip = document.getElementById('photoPreviewStrip');
+      if(strip) strip.innerHTML = pendingUploads.map(p=>`<img class="preview-thumb" src="${p.dataUrl}"/>`).join('');
+      const row = document.getElementById('photoSaveBtnRow');
+      if(row) row.style.display='flex';
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+async function savePhotos(){
+  if(!pendingUploads.length){ toast('No photos selected'); return; }
+  const roadId = document.getElementById('mn-photo-road').value;
+  const cap    = document.getElementById('mn-photo-cap').value || 'Field photo';
+  const tag    = document.getElementById('mn-photo-tag').value;
+  const r = ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  toast(`Uploading ${pendingUploads.length} photo${pendingUploads.length>1?'s':''}…`);
+  try {
+    for(const p of pendingUploads){
+      const fd = new FormData();
+      fd.append('file', p.file);
+      fd.append('road_id', roadId);
+      fd.append('caption', cap);
+      fd.append('tag', tag);
+      const photo = await api('POST','/api/photos', fd);
+      r.photos.push(photo);
+    }
+    const count = pendingUploads.length;
+    pendingUploads = [];
+    clearPhotoUploads();
+    updateStats(); setSyncStatus('ok');
+    toast(`${count} photo${count>1?'s':''} uploaded ✓`);
+  } catch(e){ setSyncStatus('error'); toast('Upload failed: '+e.message); }
+}
+
+function clearPhotoUploads(){
+  pendingUploads=[];
+  const s=document.getElementById('photoPreviewStrip'); if(s) s.innerHTML='';
+  const b=document.getElementById('photoSaveBtnRow'); if(b) b.style.display='none';
+  const i=document.getElementById('photoFileInput'); if(i) i.value='';
+}
+
+function handleInlinePhotos(e, roadId){
+  Array.from(e.target.files||[]).forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      _inlinePending.push({file:f, dataUrl:ev.target.result});
+      const strip=document.getElementById('inlinePreviewStrip');
+      if(strip) strip.innerHTML=_inlinePending.map(p=>`<img class="preview-thumb" src="${p.dataUrl}"/>`).join('');
+      const row=document.getElementById('inlineSaveRow'); if(row) row.style.display='flex';
+    };
+    reader.readAsDataURL(f);
+  });
+}
+
+async function saveInlinePhotos(roadId){
+  if(!_inlinePending.length) return;
+  const r = ROADS.find(x=>x.id===roadId); if(!r) return;
+  const cap = document.getElementById('il-cap')?.value||'Field photo';
+  const tag = document.getElementById('il-tag')?.value||'Field Photo';
+  setSyncStatus('syncing');
+  toast(`Uploading ${_inlinePending.length} photo${_inlinePending.length>1?'s':''}…`);
+  try {
+    for(const p of _inlinePending){
+      const fd = new FormData();
+      fd.append('file', p.file);
+      fd.append('road_id', roadId);
+      fd.append('caption', cap);
+      fd.append('tag', tag);
+      const photo = await api('POST','/api/photos', fd);
+      r.photos.push(photo);
+    }
+    const count=_inlinePending.length; _inlinePending=[];
+    setSyncStatus('ok'); toast(`${count} photo${count>1?'s':''} saved ✓`);
+    renderPhotosTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Upload failed: '+e.message); }
+}
+
+async function deletePhoto(e, roadId, photoId){
+  e.stopPropagation();
+  const r = ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    await api('DELETE',`/api/photos/${photoId}`);
+    r.photos = r.photos.filter(p=>p.id!==photoId);
+    setSyncStatus('ok'); toast('Photo deleted');
+    renderPhotosTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Delete failed'); }
+}
+
+function clearInlineUploads(){
+  _inlinePending=[];
+  const s=document.getElementById('inlinePreviewStrip'); if(s) s.innerHTML='';
+  const r=document.getElementById('inlineSaveRow'); if(r) r.style.display='none';
+}
+
+async function addDrivePhoto(roadId){
+  const url=document.getElementById('il-drive-url')?.value.trim();
+  const cap=document.getElementById('il-drive-cap')?.value.trim()||'Drive photo';
+  if(!url){ toast('Please enter a URL'); return; }
+  const r = ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const photo = await api('POST','/api/photos',{road_id:roadId,emoji:'🖼',caption:cap,tag:'Drive Link',driveUrl:url});
+    r.photos.push(photo);
+    setSyncStatus('ok'); toast('Drive link saved');
+    renderPhotosTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Save failed'); }
+}
+
+// ─────────────────────────────────────────────────────
+// COMPLAINTS
+// ─────────────────────────────────────────────────────
+async function addComplaintGlobal(){
+  const title=document.getElementById('mn-c-title').value.trim();
+  if(!title){ toast('Please describe the issue'); return; }
+  const roadId=document.getElementById('mn-c-road').value;
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const c = await api('POST','/api/complaints',{
+      road_id:roadId, title,
+      status:document.getElementById('mn-c-status').value,
+      dept:document.getElementById('mn-c-dept').value,
+      link:document.getElementById('mn-c-link').value.trim()
+    });
+    r.complaints.push(c);
+    updateStats(); setSyncStatus('ok');
+    document.getElementById('mn-c-title').value='';
+    document.getElementById('mn-c-link').value='';
+    toast(`Complaint saved for ${r.name} ✓`);
+    renderManage();
+  } catch(e){ setSyncStatus('error'); toast('Save failed: '+e.message); }
+}
+
+async function quickAddComplaint(roadId){
+  const title=document.getElementById('qc-title')?.value.trim();
+  if(!title){ toast('Please describe the issue'); return; }
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const c = await api('POST','/api/complaints',{
+      road_id:roadId, title,
+      status:document.getElementById('qc-status')?.value||'open',
+      dept:document.getElementById('qc-dept')?.value||'BBMP Roads',
+      link:document.getElementById('qc-link')?.value.trim()||''
+    });
+    r.complaints.push(c);
+    updateStats(); setSyncStatus('ok'); toast('Complaint saved ✓');
+    renderComplaintsTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Save failed'); }
+}
+
+async function updateComplaintStatus(roadId, complaintId, newStatus){
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  const c=r.complaints.find(x=>x.id===complaintId); if(!c) return;
+  setSyncStatus('syncing');
+  try {
+    await api('PATCH',`/api/complaints/${complaintId}`,{status:newStatus});
+    c.status=newStatus; setSyncStatus('ok'); toast('Status updated');
+  } catch(e){ setSyncStatus('error'); toast('Update failed'); }
+}
+
+async function deleteComplaint(roadId, complaintId){
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  const c=r.complaints.find(x=>x.id===complaintId); if(!c) return;
+  confirm2('Remove complaint?', `"${c.title}"`, async()=>{
+    setSyncStatus('syncing');
+    try {
+      await api('DELETE',`/api/complaints/${complaintId}`);
+      r.complaints=r.complaints.filter(x=>x.id!==complaintId);
+      updateStats(); setSyncStatus('ok'); toast('Removed');
+      renderComplaintsTab(r);
+    } catch(e){ setSyncStatus('error'); toast('Delete failed'); }
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// DRIVE LINKS
+// ─────────────────────────────────────────────────────
+async function addDriveLinkGlobal(){
+  const name=document.getElementById('mn-dl-name').value.trim();
+  const url=document.getElementById('mn-dl-url').value.trim();
+  if(!name||!url){ toast('Please enter name and URL'); return; }
+  if(!url.startsWith('http')){ toast('URL must start with http'); return; }
+  const roadId=document.getElementById('mn-dl-road').value;
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const link=await api('POST','/api/links',{road_id:roadId,name,url,type:document.getElementById('mn-dl-type').value});
+    r.driveLinks.push(link);
+    setSyncStatus('ok');
+    document.getElementById('mn-dl-name').value='';
+    document.getElementById('mn-dl-url').value='';
+    toast(`Link saved for ${r.name} ✓`);
+    renderManage();
+  } catch(e){ setSyncStatus('error'); toast('Save failed'); }
+}
+
+async function quickAddLink(roadId){
+  const name=document.getElementById('ql-name')?.value.trim();
+  const url=document.getElementById('ql-url')?.value.trim();
+  if(!name||!url){ toast('Please enter name and URL'); return; }
+  if(!url.startsWith('http')){ toast('URL must start with http'); return; }
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const link=await api('POST','/api/links',{road_id:roadId,name,url,type:document.getElementById('ql-type')?.value||'file'});
+    r.driveLinks.push(link);
+    setSyncStatus('ok'); toast('Link saved ✓');
+    renderLinksTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Save failed'); }
+}
+
+async function deleteDriveLink(roadId, linkId){
+  const r=ROADS.find(x=>x.id===roadId); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    await api('DELETE',`/api/links/${linkId}`);
+    r.driveLinks=r.driveLinks.filter(x=>x.id!==linkId);
+    setSyncStatus('ok'); renderLinksTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Delete failed'); }
+}
+
+// ─────────────────────────────────────────────────────
+// EDIT + DELETE ROAD
+// ─────────────────────────────────────────────────────
+async function saveRoadEdit(id){
+  const r=ROADS.find(x=>x.id===id); if(!r) return;
+  setSyncStatus('syncing');
+  try {
+    const updates={
+      name:document.getElementById('er-name').value,
+      block:document.getElementById('er-block').value,
+      length:document.getElementById('er-len').value,
+      status:document.getElementById('er-status').value,
+      condition:document.getElementById('er-cond').value||null,
+      width:document.getElementById('er-width').value||null,
+      auditedOn:document.getElementById('er-date').value||null
+    };
+    await api('PATCH',`/api/roads/${id}`, updates);
+    Object.assign(r, updates);
+    updateStats(); redrawRoad(r); setSyncStatus('ok');
+    document.getElementById('pt').textContent=r.name;
+    document.getElementById('ps').textContent=r.status==='pending'?'Not yet audited':`Audited ${r.auditedOn}`;
+    toast('Changes saved ✓');
+    renderEditTab(r);
+  } catch(e){ setSyncStatus('error'); toast('Save failed: '+e.message); }
+}
+
+async function deleteRoad(id){
+  const r=ROADS.find(x=>x.id===id); if(!r) return;
+  confirm2(`Delete "${r.name}"?`,
+    `This permanently removes the road + ${r.photos.length} photos + ${r.complaints.length} complaints + ${r.driveLinks.length} links from Supabase.`,
+    async ()=>{
+      setSyncStatus('syncing');
+      try {
+        await api('DELETE',`/api/roads/${id}`);
+        if(layers[id]){ layers[id].forEach(l=>map.removeLayer(l)); delete layers[id]; }
+        ROADS=ROADS.filter(x=>x.id!==id);
+        updateStats(); setSyncStatus('ok');
+        toast(`"${r.name}" deleted`);
+        renderList();
+      } catch(e){ setSyncStatus('error'); toast('Delete failed'); }
+    }
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// OPEN ROAD
+// ─────────────────────────────────────────────────────
+function openRoad(r){
+  if(drawMode) return;
+  manageMode=false;
+  document.getElementById('manageBtn').classList.remove('active');
+  document.getElementById('manageBtn').textContent='⊕ Add';
+  currentRoadId=r.id; currentTab='view';
+  document.getElementById('panelTabs').style.display='flex';
+  document.getElementById('pe').textContent=r.block;
+  document.getElementById('pt').textContent=r.name;
+  document.getElementById('ps').textContent=r.status==='pending'?'Not yet audited':`Audited ${r.auditedOn}`;
+  activateTab('view'); renderView(r);
+  if(r.coords&&r.coords.length>1) map.fitBounds(L.polyline(r.coords).getBounds(),{padding:[50,70],maxZoom:17});
+}
+
+function switchTab(tab){
+  if(!currentRoadId) return;
+  currentTab=tab; activateTab(tab);
+  const r=ROADS.find(x=>x.id===currentRoadId); if(!r) return;
+  if(tab==='view') renderView(r);
+  else if(tab==='edit') renderEditTab(r);
+  else if(tab==='photos') renderPhotosTab(r);
+  else if(tab==='complaints') renderComplaintsTab(r);
+  else if(tab==='links') renderLinksTab(r);
+}
+
+function activateTab(tab){
+  ['view','edit','photos','complaints','links'].forEach(t=>document.getElementById('tab-'+t)?.classList.toggle('active',t===tab));
+}
+
+function backBtn(){ return `<button class="back-btn" onclick="renderList()"><span class="back-btn-arrow">←</span> Back to Street Index</button>`; }
+
+// ─────────────────────────────────────────────────────
+// TAB: VIEW
+// ─────────────────────────────────────────────────────
+function renderView(r){
+  const bcls={audited:'badge-g',partial:'badge-a',pending:'badge-m'}[r.status];
+  const blbl={audited:'✓ Fully Audited',partial:'◑ Partial Audit',pending:'○ Not Yet Audited'}[r.status];
+  const condCol={Good:'#2d6a2d',Fair:'#b8620a',Poor:'#9b2020'}[r.condition]||'#8a7d70';
+  let h=backBtn();
+  h+=`<div class="badge ${bcls}">${blbl}</div>
+  <div class="metrics">
+    <div class="metric"><div class="mv">${r.length||'—'}</div><div class="ml">Length</div></div>
+    <div class="metric"><div class="mv">${r.complaints.length}</div><div class="ml">Complaints</div></div>`;
+  if(r.width) h+=`<div class="metric"><div class="mv" style="font-size:14px">${r.width}</div><div class="ml">Path Width</div></div>`;
+  if(r.condition) h+=`<div class="metric"><div class="mv" style="color:${condCol};font-size:16px">${r.condition}</div><div class="ml">Condition</div></div>`;
+  if(r.auditedOn) h+=`<div class="metric"><div class="mv" style="font-size:13px">${r.auditedOn}</div><div class="ml">Audited On</div></div>`;
+  h+=`</div>`;
+
+  if(r.photos.length){
+    h+=`<div class="div-row"><div class="div-lbl">Photos (${r.photos.length})</div><div class="div-line"></div></div><div class="photo-grid">`;
+    r.photos.slice(0,4).forEach(p=>{
+      if(p.src) h+=`<div class="photo-card" onclick="openLightbox('${p.src}')"><img src="${p.src}"/><div class="photo-tag">${p.tag}</div></div>`;
+      else h+=`<div class="photo-card">${p.driveUrl?`<a href="${p.driveUrl}" target="_blank" style="font-size:28px;text-decoration:none">🖼</a>`:`<div class="pe">${p.e}</div>`}<div class="photo-cap">${p.cap}</div><div class="photo-tag">${p.tag}</div></div>`;
+    });
+    if(r.photos.length>4) h+=`<div class="photo-card" onclick="switchTab('photos')" style="background:var(--paper3)"><div class="pe" style="font-size:20px">+${r.photos.length-4}</div><div class="photo-cap">more</div></div>`;
+    h+=`</div>`;
+  } else {
+    h+=`<div class="empty">No photos — <span style="color:var(--amber);cursor:pointer" onclick="switchTab('photos')">add in Photos tab</span></div>`;
+  }
+
+  if(r.complaints.length){
+    h+=`<div class="div-row"><div class="div-lbl">Complaints (${r.complaints.length})</div><div class="div-line"></div></div>`;
+    r.complaints.slice(0,3).forEach(c=>{
+      const slbl={open:"Open",prog:"In Progress",done:"Resolved"}[c.status];
+      h+=`<div class="complaint ${c.status}"><div class="c-head"><span class="c-id">${c.id}</span><span class="c-st ${c.status}">${slbl}</span></div><div class="c-title">${c.title}</div><div class="c-meta">${c.date} · ${c.dept}</div>${c.link?`<a class="c-link" href="${c.link}" target="_blank">↗ View complaint</a>`:''}</div>`;
+    });
+    if(r.complaints.length>3) h+=`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--amber);cursor:pointer;text-align:right;margin-top:6px" onclick="switchTab('complaints')">+${r.complaints.length-3} more →</div>`;
+    h+=`<a class="tracker-btn" href="https://bbmpsahaaya.karnataka.gov.in/" target="_blank">View on BBMP Complaint Tracker →</a>`;
+  } else {
+    h+=`<div class="empty">No complaints — <span style="color:var(--amber);cursor:pointer" onclick="switchTab('complaints')">log one</span></div>`;
+  }
+
+  if(r.driveLinks&&r.driveLinks.length){
+    const icons={form:'📋',photos:'🖼',sheet:'📊',doc:'📄',file:'📁'};
+    h+=`<div class="div-row"><div class="div-lbl">Drive Links (${r.driveLinks.length})</div><div class="div-line"></div></div>`;
+    r.driveLinks.forEach(dl=>h+=`<div class="drive-item"><div class="drive-item-icon">${icons[dl.type]||'📁'}</div><div class="drive-item-info"><div class="drive-item-name">${dl.name}</div><div class="drive-item-meta">${dl.type}</div></div><a class="drive-item-open" href="${dl.url}" target="_blank">↗ Open</a></div>`);
+  }
+  document.getElementById('pb').innerHTML=h;
+}
+
+// ─────────────────────────────────────────────────────
+// TAB: EDIT
+// ─────────────────────────────────────────────────────
+function renderEditTab(r){
+  let h=backBtn();
+  h+=`<div class="edit-road-section">
+    <div class="edit-road-title">✏ Edit Road Details</div>
+    <div class="field"><label>Road Name</label><input id="er-name" value="${r.name}"/></div>
+    <div class="field-row">
+      <div class="field"><label>Block</label><input id="er-block" value="${r.block||''}"/></div>
+      <div class="field"><label>Length</label><input id="er-len" value="${r.length||''}"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Status</label>
+        <select id="er-status">
+          <option value="pending" ${r.status==='pending'?'selected':''}>○ Pending</option>
+          <option value="partial" ${r.status==='partial'?'selected':''}>◑ Partial</option>
+          <option value="audited" ${r.status==='audited'?'selected':''}>✓ Audited</option>
+        </select>
+      </div>
+      <div class="field"><label>Condition</label>
+        <select id="er-cond">
+          <option value="" ${!r.condition?'selected':''}>— n/a</option>
+          <option value="Good" ${r.condition==='Good'?'selected':''}>Good</option>
+          <option value="Fair" ${r.condition==='Fair'?'selected':''}>Fair</option>
+          <option value="Poor" ${r.condition==='Poor'?'selected':''}>Poor</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Width</label><input id="er-width" value="${r.width||''}"/></div>
+      <div class="field"><label>Audit Date</label><input id="er-date" value="${r.auditedOn||''}"/></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-amber" onclick="saveRoadEdit('${r.id}')">✓ Save to Cloud</button></div>
+  </div>
+  <div class="div-row"><div class="div-lbl">Danger Zone</div><div class="div-line"></div></div>
+  <p style="font-family:'Lora',serif;font-style:italic;font-size:14px;color:var(--ink-muted);margin-bottom:12px;line-height:1.6">Permanently deletes this road and all its data from Supabase.</p>
+  <div class="btn-row"><button class="btn btn-red" onclick="deleteRoad('${r.id}')">✕ Delete This Road</button></div>`;
+  document.getElementById('pb').innerHTML=h;
+}
+
+// ─────────────────────────────────────────────────────
+// TAB: PHOTOS
+// ─────────────────────────────────────────────────────
+function renderPhotosTab(r){
+  let h=backBtn();
+  h+=`<div class="div-row"><div class="div-lbl">All Photos (${r.photos.length})</div><div class="div-line"></div></div>`;
+  if(r.photos.length){
+    h+=`<div class="photo-grid">`;
+    r.photos.forEach(p=>{
+      if(p.src) h+=`<div class="photo-card" onclick="openLightbox('${p.src}')"><img src="${p.src}"/><div class="photo-tag">${p.tag}</div><div class="photo-cap" style="position:relative;z-index:1;background:rgba(245,240,232,0.88)">${p.cap}</div><button class="photo-del-btn" onclick="deletePhoto(event,'${r.id}','${p.id}')">✕</button></div>`;
+      else h+=`<div class="photo-card"><div class="pe">${p.e}</div><div class="photo-cap">${p.cap}</div><div class="photo-tag">${p.tag}</div>${p.driveUrl?`<a class="c-link" href="${p.driveUrl}" target="_blank" style="position:absolute;bottom:5px;left:5px;font-size:9px">↗</a>`:''}<button class="photo-del-btn" onclick="deletePhoto(event,'${r.id}','${p.id}')">✕</button></div>`;
+    });
+    h+=`</div>`;
+  } else h+=`<div class="empty">No photos recorded yet</div>`;
+
+  h+=`<div class="div-row" style="margin-top:16px"><div class="div-lbl">Upload Photos</div><div class="div-line"></div></div>
+  <label class="upload-zone" id="inlineUploadZone">
+    <input type="file" id="inlineFileInput" multiple accept="image/*" onchange="handleInlinePhotos(event,'${r.id}')"/>
+    <div class="upload-icon">📎</div>
+    <div class="upload-text">Tap to choose photos from device<br>Photos saved to Supabase Storage</div>
+  </label>
+  <div class="preview-strip" id="inlinePreviewStrip"></div>
+  <div class="field"><label>Caption</label><input id="il-cap" placeholder="Describe what you see..."/></div>
+  <div class="field"><label>Tag</label>
+    <select id="il-tag"><option>Encroachment</option><option>Damage</option><option>Obstruction</option><option>Missing Infra</option><option>Hazard</option><option>Drainage</option><option>Accessibility</option><option>Good Condition</option><option>Infrastructure</option></select>
+  </div>
+  <div class="btn-row" id="inlineSaveRow" style="display:none">
+    <button class="btn btn-amber" onclick="saveInlinePhotos('${r.id}')">⬆ Upload & Save</button>
+    <button class="btn btn-ghost" onclick="clearInlineUploads()">Clear</button>
+  </div>
+  <div class="div-row" style="margin-top:12px"><div class="div-lbl">Or paste a Drive link</div><div class="div-line"></div></div>
+  <div class="field"><label>Drive URL</label><input id="il-drive-url" placeholder="https://drive.google.com/..."/></div>
+  <div class="field"><label>Caption</label><input id="il-drive-cap" placeholder="Album or photo name"/></div>
+  <div class="btn-row"><button class="btn btn-ink" onclick="addDrivePhoto('${r.id}')">＋ Add Link</button></div>`;
+
+  document.getElementById('pb').innerHTML=h;
+  _inlinePending=[];
+  const uz=document.getElementById('inlineUploadZone');
+  uz.addEventListener('click',e=>{ if(e.target.tagName!=='INPUT') document.getElementById('inlineFileInput').click(); });
+  uz.addEventListener('dragover',e=>{ e.preventDefault(); uz.classList.add('drag'); });
+  uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+  uz.addEventListener('drop',e=>{ e.preventDefault(); uz.classList.remove('drag'); handleInlinePhotos({target:{files:e.dataTransfer.files}},r.id); });
+}
+
+// ─────────────────────────────────────────────────────
+// TAB: COMPLAINTS
+// ─────────────────────────────────────────────────────
+function renderComplaintsTab(r){
+  let h=backBtn();
+  h+=`<div class="div-row"><div class="div-lbl">All Complaints (${r.complaints.length})</div><div class="div-line"></div></div>`;
+  if(r.complaints.length){
+    r.complaints.forEach(c=>{
+      const slbl={open:"Open",prog:"In Progress",done:"Resolved"}[c.status];
+      h+=`<div class="complaint ${c.status}">
+        <div class="c-head"><span class="c-id">${c.id}</span>
+          <select style="font-family:'DM Mono',monospace;font-size:10px;border:none;background:transparent;cursor:pointer" onchange="updateComplaintStatus('${r.id}','${c.id}',this.value)">
+            <option value="open" ${c.status==='open'?'selected':''}>Open</option>
+            <option value="prog" ${c.status==='prog'?'selected':''}>In Progress</option>
+            <option value="done" ${c.status==='done'?'selected':''}>Resolved</option>
+          </select>
+        </div>
+        <div class="c-title">${c.title}</div>
+        <div class="c-meta">${c.date} · ${c.dept}</div>
+        ${c.link?`<a class="c-link" href="${c.link}" target="_blank">↗ View on portal</a>`:''}
+        <div class="c-actions"><button class="btn btn-red" style="padding:8px 12px" onclick="deleteComplaint('${r.id}','${c.id}')">✕ Remove</button></div>
+      </div>`;
+    });
+    h+=`<a class="tracker-btn" href="https://bbmpsahaaya.karnataka.gov.in/" target="_blank">Open BBMP Complaint Tracker →</a>`;
+  } else h+=`<div class="empty">No complaints filed for this road</div>`;
+
+  h+=`<div class="div-row" style="margin-top:16px"><div class="div-lbl">Log New Complaint</div><div class="div-line"></div></div>
+  <div class="field"><label>Issue *</label><textarea id="qc-title" placeholder="Describe the footpath issue..."></textarea></div>
+  <div class="field-row">
+    <div class="field"><label>Department</label>
+      <select id="qc-dept"><option>BBMP Roads</option><option>BBMP Ward Office</option><option>BBMP Drainage</option><option>BBMP Buildings</option><option>BBMP Horticulture</option><option>Traffic Police</option><option>BWSSB</option><option>Other</option></select>
+    </div>
+    <div class="field"><label>Status</label>
+      <select id="qc-status"><option value="open">Open</option><option value="prog">In Progress</option><option value="done">Resolved</option></select>
+    </div>
+  </div>
+  <div class="field"><label>Complaint Link (optional)</label><input id="qc-link" placeholder="https://bbmpsahaaya.karnataka.gov.in/..."/></div>
+  <div class="btn-row"><button class="btn btn-ink" onclick="quickAddComplaint('${r.id}')">＋ Add Complaint</button></div>`;
+  document.getElementById('pb').innerHTML=h;
+}
+
+// ─────────────────────────────────────────────────────
+// TAB: LINKS
+// ─────────────────────────────────────────────────────
+function renderLinksTab(r){
+  const icons={form:'📋',photos:'🖼',sheet:'📊',doc:'📄',file:'📁'};
+  let h=backBtn();
+  h+=`<div class="div-row"><div class="div-lbl">Drive & Form Links (${r.driveLinks.length})</div><div class="div-line"></div></div>`;
+  if(r.driveLinks.length){
+    r.driveLinks.forEach(dl=>h+=`<div class="drive-item"><div class="drive-item-icon">${icons[dl.type]||'📁'}</div><div class="drive-item-info"><div class="drive-item-name">${dl.name}</div><div class="drive-item-meta">${dl.type}</div></div><a class="drive-item-open" href="${dl.url}" target="_blank">↗ Open</a><button class="drive-del" onclick="deleteDriveLink('${r.id}','${dl.id}')">✕</button></div>`);
+  } else h+=`<div class="empty">No links yet</div>`;
+
+  h+=`<div class="div-row" style="margin-top:14px"><div class="div-lbl">Add Link</div><div class="div-line"></div></div>
+  <div class="field"><label>Name *</label><input id="ql-name" placeholder="e.g. Audit Form Responses..."/></div>
+  <div class="field"><label>URL *</label><input id="ql-url" placeholder="https://drive.google.com/..."/></div>
+  <div class="field"><label>Type</label>
+    <select id="ql-type"><option value="form">📋 Google Form Response</option><option value="photos">🖼 Photo Album</option><option value="sheet">📊 Google Sheet</option><option value="doc">📄 Google Doc</option><option value="file">📁 File / Other</option></select>
+  </div>
+  <div class="btn-row"><button class="btn btn-ink" onclick="quickAddLink('${r.id}')">＋ Add Link</button></div>`;
+  document.getElementById('pb').innerHTML=h;
+}
+
+// ─────────────────────────────────────────────────────
+// LIST
+// ─────────────────────────────────────────────────────
+function renderList(){
+  manageMode=false; currentRoadId=null;
+  document.getElementById('manageBtn').classList.remove('active');
+  document.getElementById('manageBtn').textContent='⊕ Add';
+  document.getElementById('panelTabs').style.display='none';
+  document.getElementById('pe').textContent='Field Report — 2026';
+  document.getElementById('pt').textContent='Street Index';
+  document.getElementById('ps').textContent='Koramangala 3rd – 7th Block';
+
+  const audited=ROADS.filter(r=>r.status==='audited').length;
+  const pct=ROADS.length?Math.round((audited/ROADS.length)*100):0;
+  let h=`<div class="prog-wrap"><div class="prog-top"><span>Audit Coverage</span><span class="prog-pct">${pct}%</span></div><div class="prog-bar"><div class="prog-fill" id="pf" style="width:0%"></div></div></div>`;
+
+  const ord={audited:0,partial:1,pending:2};
+  [...ROADS].sort((a,b)=>ord[a.status]-ord[b.status]).forEach(r=>{
+    const dc={audited:"#2d6a2d",partial:"#b8620a",pending:"#b0a090"}[r.status];
+    const sc={audited:"#2d6a2d",partial:"#b8620a",pending:"#8a7d70"}[r.status];
+    const sl={audited:"Audited",partial:"Partial",pending:"Pending"}[r.status];
+    h+=`<div class="sitem" onclick="openRoad(ROADS.find(x=>x.id==='${r.id}'))">
+      <div class="sitem-dot" style="background:${dc}"></div>
+      <div style="flex:1">
+        <div class="sitem-name">${r.name}</div>
+        <div class="sitem-meta">${r.block}${r.length?' · '+r.length:''}</div>
+      </div>
+      <div class="sitem-r">
+        <div class="sitem-status" style="color:${sc}">${sl}</div>
+        ${r.complaints.length?`<div class="sitem-meta" style="margin-top:2px">${r.complaints.length} complaint${r.complaints.length>1?'s':''}</div>`:''}
+        ${r.driveLinks&&r.driveLinks.length?`<div class="sitem-meta" style="margin-top:2px;color:var(--amber)">${r.driveLinks.length} link${r.driveLinks.length>1?'s':''}</div>`:''}
+      </div>
+    </div>`;
+  });
+  document.getElementById('pb').innerHTML=h;
+  setTimeout(()=>{ const el=document.getElementById('pf'); if(el) el.style.width=pct+'%'; },80);
+}
+
+// ─────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────
+function openLightbox(src){ if(!src) return; document.getElementById('lbImg').src=src; document.getElementById('lightbox').classList.add('open'); }
+function closeLightbox(){ document.getElementById('lightbox').classList.remove('open'); document.getElementById('lbImg').src=''; }
+let toastTimer;
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),3000); }
+function confirm2(title,body,cb){ document.getElementById('modalTitle').textContent=title; document.getElementById('modalBody').textContent=body; document.getElementById('modalConfirm').onclick=()=>{ closeModal(); cb(); }; document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+
+// ─────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
