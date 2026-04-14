@@ -1,8 +1,15 @@
-import os, uuid
+import os, uuid, io
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, abort
 from supabase import create_client, Client
 from dotenv import load_dotenv
+try:
+    from PIL import Image
+    import pillow_heif
+    pillow_heif.register_heif_opener()  # enables HEIC/HEIF support
+    PILLOW = True
+except ImportError:
+    PILLOW = False
 
 load_dotenv()
 
@@ -20,6 +27,27 @@ def today_str():
     months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
     d = datetime.now()
     return f"{d.day} {months[d.month-1]} {d.year}"
+
+
+def convert_to_jpeg(file_bytes, content_type):
+    """Convert any image (including HEIC) to JPEG for browser compatibility."""
+    if not PILLOW:
+        return file_bytes, content_type, 'jpg'
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        if img.mode in ('RGBA', 'P', 'LA'):
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            if img.mode == 'P':
+                img = img.convert('RGBA')
+            bg.paste(img, mask=img.split()[-1] if img.mode in ('RGBA','LA') else None)
+            img = bg
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        out = io.BytesIO()
+        img.save(out, format='JPEG', quality=85)
+        return out.getvalue(), 'image/jpeg', 'jpg'
+    except Exception:
+        return file_bytes, content_type, 'jpg'
 
 # ── Pages ────────────────────────────────────────────────────────────────────
 
@@ -124,12 +152,13 @@ def create_photo():
         if not file or not road_id:
             abort(400, "Missing file or road_id")
 
-        ext        = (file.filename.rsplit(".", 1)[-1].lower()) if "." in file.filename else "jpg"
-        path       = f"{road_id}/{uuid.uuid4()}.{ext}"
         file_bytes = file.read()
+        # Convert HEIC/HEIF and any non-web format to JPEG
+        file_bytes, content_type, ext = convert_to_jpeg(file_bytes, file.content_type or "image/jpeg")
+        path = f"{road_id}/{uuid.uuid4()}.{ext}"
         supabase.storage.from_(BUCKET).upload(
             path, file_bytes,
-            file_options={"content-type": file.content_type or "image/jpeg"}
+            file_options={"content-type": content_type}
         )
         public_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{path}"
         row = {
