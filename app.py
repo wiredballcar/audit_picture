@@ -229,10 +229,14 @@ def delete_link(link_id):
 
 @app.route("/api/seed", methods=["POST"])
 def seed():
-    """Called by the frontend on first load if no roads exist."""
-    existing = supabase.table("roads").select("id").limit(1).execute().data
-    if existing:
-        return jsonify({"seeded": False, "msg": "Already has data"})
+    """Called by the frontend on first load — seeds default roads once only."""
+    # Check a dedicated flag so we never re-seed even if all roads are deleted
+    try:
+        flag = supabase.table("seed_flag").select("id").limit(1).execute().data
+        if flag:
+            return jsonify({"seeded": False, "msg": "Already seeded"})
+    except Exception:
+        pass  # table may not exist yet — proceed to seed
 
     defaults = [
         {"id":"r60ft","name":"60 Feet Road","status":"audited","block":"3rd – 7th Block","length":"2.1 km","audited_on":"15 Nov 2024","width":"1.2 – 1.8 m","condition":"Fair","coords":[[12.9279,77.6103],[12.9278,77.6145],[12.9278,77.6190],[12.9279,77.6230],[12.9280,77.6275],[12.9282,77.6315],[12.9285,77.6355],[12.9288,77.6400],[12.9290,77.6435]]},
@@ -248,6 +252,11 @@ def seed():
         {"id":"r11cross","name":"11th Cross Road","status":"pending","block":"6th – 7th Block","length":"0.9 km","audited_on":None,"width":None,"condition":None,"coords":[[12.9245,77.6175],[12.9247,77.6215],[12.9248,77.6255],[12.9249,77.6295]]},
     ]
     supabase.table("roads").insert(defaults).execute()
+    # Write the flag so this never runs again
+    try:
+        supabase.table("seed_flag").insert({"id": "done"}).execute()
+    except Exception:
+        pass
     return jsonify({"seeded": True, "count": len(defaults)})
 
 # ─────────────────────────────────────────────────────────────────────────────
