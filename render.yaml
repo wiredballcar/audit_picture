@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: koramangala-audit
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: STADIA_API_KEY
+        sync: false
