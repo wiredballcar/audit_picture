@@ -14,7 +14,7 @@ except ImportError:
 load_dotenv()
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
@@ -30,23 +30,38 @@ def today_str():
 
 
 def convert_to_jpeg(file_bytes, content_type):
-    """Convert any image (including HEIC) to JPEG for browser compatibility."""
+    """Convert any image (including HEIC) to JPEG and resize if too large."""
     if not PILLOW:
         return file_bytes, content_type, 'jpg'
     try:
         img = Image.open(io.BytesIO(file_bytes))
+        # Fix EXIF orientation before anything else
+        try:
+            from PIL import ImageOps
+            img = ImageOps.exif_transpose(img)
+        except Exception:
+            pass
+        # Convert to RGB
         if img.mode in ('RGBA', 'P', 'LA'):
             bg = Image.new('RGB', img.size, (255, 255, 255))
             if img.mode == 'P':
                 img = img.convert('RGBA')
-            bg.paste(img, mask=img.split()[-1] if img.mode in ('RGBA','LA') else None)
+            bg.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
             img = bg
         elif img.mode != 'RGB':
             img = img.convert('RGB')
+        # Resize: max 1600px on longest side (keeps file small, loads fast)
+        MAX_PX = 1600
+        w, h = img.size
+        if max(w, h) > MAX_PX:
+            ratio = MAX_PX / max(w, h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        # Save as JPEG, quality 82 — good balance of size vs quality
         out = io.BytesIO()
-        img.save(out, format='JPEG', quality=85)
+        img.save(out, format='JPEG', quality=82, optimize=True)
         return out.getvalue(), 'image/jpeg', 'jpg'
-    except Exception:
+    except Exception as e:
+        print(f"Image conversion error: {e}")
         return file_bytes, content_type, 'jpg'
 
 # ── Pages ────────────────────────────────────────────────────────────────────
